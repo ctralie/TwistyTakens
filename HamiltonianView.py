@@ -22,10 +22,15 @@ import time
 from time import sleep
 from pylab import cm
 import matplotlib.pyplot as plt
+from OpenGL.arrays import vbo
 
 class MeshViewerCanvas(BasicMeshCanvas):
     def __init__(self, parent):
         super(MeshViewerCanvas, self).__init__(parent)
+        self.hamVBO = None
+        self.hamPath = np.zeros((0, 3))
+        self.displayHamPath = True
+        self.displayMeshVertices = False
 
     def displayMeshFacesCheckbox(self, evt):
         self.displayMeshFaces = evt.Checked()
@@ -53,12 +58,14 @@ class MeshViewerCanvas(BasicMeshCanvas):
 
     def useLightingCheckbox(self, evt):
         self.useLighting = evt.Checked()
-        self.needsDisplayUpdate = True
         self.Refresh()
 
     def useTextureCheckbox(self, evt):
         self.useTexture = evt.Checked()
-        self.needsDisplayUpdate = True
+        self.Refresh()
+
+    def displayHamCheckbox(self, evt):
+        self.displayHamPath = evt.Checked()
         self.Refresh()
 
     def drawMeshStandard(self):
@@ -70,6 +77,26 @@ class MeshViewerCanvas(BasicMeshCanvas):
         glLightfv(GL_LIGHT0, GL_POSITION, np.array([0, 0, 0, 1]))
         self.mesh.renderGL(self.displayMeshEdges, self.displayMeshVertices, self.displayMeshFaces, self.displayVertexNormals, self.displayFaceNormals, self.useLighting, self.useTexture, self.displayBoundary)
 
+    def drawHamPath(self, N):
+        """
+        Draw hamiltonian path with magenta lines
+        :param N: Draw the first N points along the path
+        """
+        if not self.hamVBO:
+            return
+        glEnableClientState(GL_VERTEX_ARRAY)
+        self.hamVBO.bind()
+        glVertexPointerf(self.hamVBO)
+        glDisable(GL_LIGHTING)
+        glLineWidth(2)
+        glColor3f(1.0, 0, 1.0)
+        glDrawArrays(GL_LINES, 0, N)
+        glPointSize(10)
+        glColor3f(0.9, 0, 0.9)
+        glDrawArrays(GL_POINTS, 0, N)
+        self.hamVBO.unbind()
+        glDisableClientState(GL_VERTEX_ARRAY)
+
     def repaint(self):
         self.setupPerspectiveMatrix()
 
@@ -79,10 +106,28 @@ class MeshViewerCanvas(BasicMeshCanvas):
         if self.mesh:
             self.drawMeshStandard()
 
+        if self.displayHamPath:
+            self.drawHamPath(self.hamPath.shape[0])
+
         self.SwapBuffers()
 
+    def OnComputeHamiltonianPath(self, evt):
+        if self.hamVBO:
+            self.hamVBO.delete()
+        cycles = getHamiltonianPath(self.mesh)
+        V = np.zeros((0, 3))
+        print "len(cycles) = ", len(cycles)
+        for c in cycles:
+            v = np.zeros((c.shape[0]*2, 3))
+            v[0::2, :] = c
+            v[1:-1:2, :] = c[1::, :]
+            v[-1, :] = c[0, :]
+            V = np.concatenate((V, v), 0)
+        self.hamPath = V
+        self.hamVBO = vbo.VBO(np.array(V, dtype = np.float32))
+
 class MeshViewerFrame(wx.Frame):
-    (ID_LOADDATASET, ID_SAVEDATASET, ID_SAVEDATASETMETERS, ID_SAVESCREENSHOT, ID_CONNECTEDCOMPONENTS, ID_SPLITFACES, ID_TRUNCATE, ID_FILLHOLES, ID_GEODESICDISTANCES, ID_PRST, ID_INTERPOLATECOLORS, ID_SAVEROTATINGSCREENSOTS, ID_SAVELIGHTINGSCREENSHOTS, ID_SELECTLAPLACEVERTICES, ID_CLEARLAPLACEVERTICES, ID_SOLVEWITHCONSTRAINTS, ID_MEMBRANEWITHCONSTRAINTS, ID_GETHKS, ID_GETHEATFLOW) = (1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19)
+    (ID_LOADDATASET, ID_SAVEDATASET, ID_SAVEDATASETMETERS, ID_SAVESCREENSHOT, ID_CONNECTEDCOMPONENTS, ID_SPLITFACES, ID_TRUNCATE, ID_FILLHOLES, ID_GEODESICDISTANCES, ID_PRST, ID_INTERPOLATECOLORS, ID_SAVEROTATINGSCREENSOTS, ID_SAVELIGHTINGSCREENSHOTS, ID_COMPUTEHAMILTONIANPATH, ID_CLEARLAPLACEVERTICES, ID_SOLVEWITHCONSTRAINTS, ID_MEMBRANEWITHCONSTRAINTS, ID_GETHKS, ID_GETHEATFLOW) = (1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19)
 
     def __init__(self, parent, id, title, pos=DEFAULT_POS, size=DEFAULT_SIZE, style=wx.DEFAULT_FRAME_STYLE, name = 'GLWindow'):
         style = style | wx.NO_FULL_REPAINT_ON_RESIZE
@@ -107,10 +152,16 @@ class MeshViewerFrame(wx.Frame):
         menuExit = filemenu.Append(wx.ID_EXIT,"E&xit"," Terminate the program")
         self.Bind(wx.EVT_MENU, self.OnExit, menuExit)
 
+        #####Hamiltonian Path menu
+        hammenu = wx.Menu()
+        menuComputeHam = hammenu.Append(MeshViewerFrame.ID_COMPUTEHAMILTONIANPATH, "&Compute Hamiltonian Path", "Compute Hamiltonian Path")
+        self.Bind(wx.EVT_MENU, self.glcanvas.OnComputeHamiltonianPath, menuComputeHam)
+
 
         # Creating the menubar.
         menuBar = wx.MenuBar()
         menuBar.Append(filemenu,"&File") # Adding the "filemenu" to the MenuBar
+        menuBar.Append(hammenu, "&Hamiltonian")
         self.SetMenuBar(menuBar)  # Adding the MenuBar to the Frame content.
 
         self.rightPanel = wx.BoxSizer(wx.VERTICAL)
@@ -143,7 +194,7 @@ class MeshViewerFrame(wx.Frame):
         self.Bind(wx.EVT_CHECKBOX, self.glcanvas.displayBoundaryCheckbox, self.displayBoundaryCheckbox)
         self.rightPanel.Add(self.displayBoundaryCheckbox, 0, wx.EXPAND)
         self.displayMeshVerticesCheckbox = wx.CheckBox(self, label = "Display Mesh Points")
-        self.displayMeshVerticesCheckbox.SetValue(True)
+        self.displayMeshVerticesCheckbox.SetValue(False)
         self.Bind(wx.EVT_CHECKBOX, self.glcanvas.displayMeshVerticesCheckbox, self.displayMeshVerticesCheckbox)
         self.rightPanel.Add(self.displayMeshVerticesCheckbox, 0, wx.EXPAND)
         self.displayVertexNormalsCheckbox = wx.CheckBox(self, label = "Display Vertex Normals")
@@ -162,6 +213,10 @@ class MeshViewerFrame(wx.Frame):
         self.useTextureCheckbox.SetValue(False)
         self.Bind(wx.EVT_CHECKBOX, self.glcanvas.useTextureCheckbox, self.useTextureCheckbox)
         self.rightPanel.Add(self.useTextureCheckbox, 0, wx.EXPAND)
+        self.displayHamCheckbox = wx.CheckBox(self, label = "Display Hamiltonian Path")
+        self.displayHamCheckbox.SetValue(True)
+        self.Bind(wx.EVT_CHECKBOX, self.glcanvas.displayHamCheckbox, self.displayHamCheckbox)
+        self.rightPanel.Add(self.displayHamCheckbox, 0, wx.EXPAND)
 
         #Finally add the two main panels to the sizer
         self.sizer = wx.BoxSizer(wx.HORIZONTAL)
@@ -188,7 +243,6 @@ class MeshViewerFrame(wx.Frame):
             self.glcanvas.meshPrincipalAxes = self.glcanvas.mesh.getPrincipalAxes()
             print "Finished loading mesh"
             print self.glcanvas.mesh
-            getHamiltonianPath(self.glcanvas.mesh)
             self.glcanvas.initMeshBBox()
             self.glcanvas.Refresh()
         dlg.Destroy()
