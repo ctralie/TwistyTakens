@@ -6,7 +6,11 @@ from SlidingWindow import *
 from sklearn.decomposition import PCA
 import scipy.sparse as sparse
 import scipy.special
-from TDA import *
+from ripser import Rips
+import sys 
+sys.path.append("DREiMac/")
+from CircularCoordinates import getCircularCoordinates
+from Laplacian import getTorusCoordinates
 
 """
 Furthest Point Sampling
@@ -102,7 +106,8 @@ def drawLineColored(idx, x, C):
     for i in range(len(x)-1):
         plt.plot(idx[i:i+2], x[i:i+2], c=C[i, :])
 
-def plotSlidingWindowResults(x, X, doTDA = False):
+CIRC_COORDS, CIRC_COORDS_LAPLACIAN, PROJ_COORDS, PCA_COORDS = 0, 1, 2, 3
+def plotSlidingWindowResults(x, X, projType = PCA_COORDS, doTDA = False, p=47, subsample=1.0):
     xmin = np.min(x)
     xmax = np.max(x)
     
@@ -110,46 +115,73 @@ def plotSlidingWindowResults(x, X, doTDA = False):
     c = plt.get_cmap('Spectral')
     C = c(np.array(np.round(np.linspace(0, 255, X.shape[0])), dtype=np.int32))
     C = C[:, 0:3]
-
-    #Perform PCA down to 2D for visualization
-    pca = PCA(n_components = 3)
-    Y = pca.fit_transform(X)
-    sio.savemat("Sphere.mat", {"Y":Y, "x":x})
-    eigs = pca.explained_variance_
     
     if doTDA:
-        fig = plt.figure(figsize=(18, 5))
-        plt.subplot(131)
+        #fig = plt.figure(figsize=(18, 5))
+        plt.subplot(141)
     else:
         fig = plt.figure(figsize=(12, 5))
         plt.subplot(121)
     
-    drawLineColored(np.arange(X.shape[0]), x[0:X.shape[0]], C)
+    drawLineColored(np.arange(X.shape[0])/subsample, x[0:X.shape[0]], C)
     plt.ylim([xmin - (xmax - xmin)*0.1, xmax + (xmax - xmin)*0.1])
     ax = plt.gca()
     plotbgcolor = (0.15, 0.15, 0.15)
     ax.set_axis_bgcolor(plotbgcolor)
     plt.title("Original Signal")
     plt.xlabel("t")
+    
 
     if doTDA:
-        ax2 = fig.add_subplot(132, projection = '3d')
-    else:
-        ax2 = fig.add_subplot(122, projection = '3d')
-    plt.title("PCA of Sliding Window Embedding\n%.3g%s Variance Explained"%(100*np.sum(pca.explained_variance_ratio_), "%"))
-    ax2.scatter(Y[:, 0], Y[:, 1], Y[:, 2], c=C, edgecolor='none')
-
-    if doTDA:
-        plt.subplot(133)
+        plt.subplot(144)
         #Do TDA
-        PDs2 = doRipsFiltration(X, 2, thresh = -1, coeff = 3)
-        H1 = plotDGM(PDs2[1], color = np.array([1.0, 0.0, 0.2]), label = 'H1', sz = 50, axcolor = np.array([0.8]*3))
-        plt.hold(True)
-        H2 = plotDGM(PDs2[2], color = np.array([0.43, 0.67, 0.27]), marker = 'x', sz = 50, label = 'H2', axcolor = np.array([0.8]*3))
-        #plt.legend(handles=[H1, H2])
-
+        r = Rips(coeff=p, maxdim=2, do_cocycles=True)
+        r.fit_transform(X)
+        r.plot(show=False)
+        plt.title('Persistence Diagrams $\mathbb{Z}_{%i}$'%p)
+    
+    if projType == PCA_COORDS:
+        if doTDA:
+            ax2 = fig.add_subplot(142, projection = '3d')
+        else:
+            ax2 = fig.add_subplot(122, projection = '3d')
+        #Perform PCA down to 2D for visualization
+        pca = PCA(n_components = 3)
+        Y = pca.fit_transform(X)
+        sio.savemat("Sphere.mat", {"Y":Y, "x":x})
+        eigs = pca.explained_variance_
+        plt.title("PCA of Sliding Window Embedding\n%.3g%s Variance Explained"%(100*np.sum(pca.explained_variance_ratio_), "%"))
+        ax2.scatter(Y[:, 0], Y[:, 1], Y[:, 2], c=C, edgecolor='none')
+        return Y
+    elif projType == CIRC_COORDS and doTDA:
+        plt.subplot(143)
+        #Get two maps to the circle from the highest two persistence points
+        dgm1 = r.dgm_[1]
+        idx = np.argsort(dgm1[:, 0]-dgm1[:, 1])
+        ccl1 = r.cocycles_[1][idx[0]]
+        thresh1 = dgm1[idx[0],1]-0.001
+        ccl2 = r.cocycles_[1][idx[1]]
+        thresh2 = dgm1[idx[1],1]-0.001
+        theta, _ = getCircularCoordinates(X, ccl1, p, thresh1)
+        phi, _ = getCircularCoordinates(X, ccl2, p, thresh2)
+        #plt.scatter(theta, phi, 20, c=C, edgecolor='none')
         ax = plt.gca()
         ax.set_axis_bgcolor(plotbgcolor)
-        plt.title('Persistence Diagrams $\mathbb{Z}_3$')
-    
-    return Y
+        return theta, phi
+    elif projType == CIRC_COORDS_LAPLACIAN and doTDA:
+        plt.subplot(143)
+        dgm1 = r.dgm_[1]
+        #Find second most persistent H1 dot
+        idx = np.argsort(dgm1[:, 0]-dgm1[:, 1])[1]
+        birthfac = 0.1
+        thresh = birthfac*dgm1[idx, 0] + (1.0-birthfac)*dgm1[idx, 1]
+        print("thresh = ", thresh)
+        res = getTorusCoordinates(X, thresh, weighted=True)
+        theta, phi = res['theta'] + np.pi, res['phi'] + np.pi
+        plt.scatter(theta, phi, 20, c=C, edgecolor='none')
+        plt.xlabel("Laplacian $\\theta$")
+        plt.ylabel("Laplacian $\\phi$")
+        plt.title("Sliding Window Estimated Phases")
+        ax = plt.gca()
+        ax.set_axis_bgcolor(plotbgcolor)
+        return theta, phi
