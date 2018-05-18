@@ -54,8 +54,44 @@ def getBulgingSphereTimeSeries(theta, phi):
 
     return (X, d.flatten())
 
+"""
+    NPeriods : int
+        Number of periods wrapping around the circle part of the Klein bottle as
+        it goes from bottom to top
+"""
 
-if __name__ == '__main__':
+def getKleinTimeSeries(T1, slope, eps = 0.02):
+    """
+    Make a Klein bottle time series
+    
+    Parameters
+    ----------
+    T1 : int
+        The number of samples per period on the circle part
+    slope : float
+        Slope of the trajectory along principal domain of the Klein bottle
+    eps : float
+        Fuzz close to the boundary in the y direction.  Or if negative,
+        the number of periods to complete
+    """
+    NPeriods = 1.0/slope
+    N = T1*NPeriods
+    print("NPeriods = %i, N = %i"%(NPeriods, N))
+    if eps < 0:
+        print("Expanding period")
+        N *= -eps
+        y = np.linspace(0, np.pi*(-eps), N)
+    else:
+        y = np.linspace(0, np.pi, N)
+    x = np.arange(N)*2*np.pi/T1
+    
+    if eps > 0:
+        idx = (y>eps)*(y<np.pi-eps) #Exlude points close to the boundary
+        x = x[idx]
+        y = y[idx]
+    return np.cos(2*x) + np.cos(x)*np.sin(y) + np.cos(y)
+
+def doSphereExample():
     np.random.seed(100)
     N = 6000
     NPeriods = 50
@@ -79,4 +115,10 @@ if __name__ == '__main__':
     Z[:, 3] = x[0:Z.shape[0]]
     savePCOff(Y, "Sphere.off")
 
-    
+def doKleinExample():
+    x = getKleinTimeSeries(40, 0.05)
+    plt.plot(x)
+    plt.show()
+
+if __name__ == '__main__':
+    doKleinExample()
