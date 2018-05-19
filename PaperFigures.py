@@ -7,6 +7,9 @@ from Utilities import *
 from sklearn.decomposition import PCA
 from DiffusionMaps import *
 from Manifolds2D import *
+import sys 
+sys.path.append("DREiMac")
+from ProjectiveCoordinates import *
 
 def makeTorusFigure():
     """
@@ -51,27 +54,76 @@ def makeTorusFigure():
 def makeKleinFigure():
     T = 30
     slope = 0.05
-    x = getKleinTimeSeries(T, 0.05)
+    #slope = 0.2
+    x = getKleinTimeSeries(T, slope)
     X = getSlidingWindowNoInterp(x, T)
+    c = plt.get_cmap('Spectral')
+    C = c(np.array(np.round(np.linspace(0, 255, X.shape[0])), dtype=np.int32))
+    C = C[:, 0:3]
+    M = X.shape[0]
+    cocycle_idx = [0, 1]
+    NLandmarks = 50
 
+    res = ProjCoords(X, NLandmarks, cocycle_idx = cocycle_idx, proj_dim=2)
+    SFinal = getStereoProjCodim1(res['X'])
+
+    plt.figure(figsize=(12, 4))
 
     plt.subplot(131)
-    plt.plot(x)
+    res["rips"].plot(show = False)
+    dgm1 = res["dgm1"]
+    idx = res["idx_p1"]
+    #plt.scatter(dgm1[idx, 0]*2, dgm1[idx, 1]*2, 40, 'r')
 
     plt.subplot(132)
+    drawLineColored(np.arange(M), x[0:M], C)
+
+    plt.subplot(133)
+    plotRP2Stereo(SFinal, C)
+    plt.title("Cocycles %s"%cocycle_idx)
+
+    """
+    plt.subplot(154)
     r = Rips(coeff=2, maxdim=2, do_cocycles=True)
     r.fit_transform(X)
     r.plot(show=False)
     plt.title("$\mathbb{Z} / 2$")
 
-    plt.subplot(133)
+    plt.subplot(155)
     r = Rips(coeff=3, maxdim=2, do_cocycles=True)
     r.fit_transform(X)
     r.plot(show=False)
     plt.title("$\mathbb{Z} / 3$")
+    """
 
+    plt.savefig("Klein.svg", bbox_inches='tight')
+
+def makeTorusDistanceFigure():
+    res = 400
+    #np.random.seed(1)
+    #x = np.random.rand(2)*res
+    x = np.array([0.2*res, 0.1*res])
+    theta = np.arange(res)
+    [theta, phi] = np.meshgrid(theta, theta)
+    
+    dx = np.abs(theta - x[0])
+    dx = np.minimum(dx, np.abs(theta - (res + x[0])))
+    dx = np.minimum(dx, np.abs(theta - (x[0] - res)))
+    dy = np.abs(phi - x[1])
+    dy = np.minimum(dy, np.abs(phi - (res + x[1])))
+    dy = np.minimum(dy, np.abs(phi - (x[1] - res)))
+    dx = dx*res/(2*np.pi)
+    dy = dy*res/(2*np.pi)
+    #dist = np.sqrt(dx**2 + dy**2)
+    dist = dx + dy
+    plt.imshow(dist, cmap = 'afmhot', interpolation = 'none')
+    plt.scatter([x[0]], [x[1]], 20)
     plt.show()
+
+def makeKleinDistanceFigure():
+    res = 400
 
 if __name__ == '__main__':
     #makeTorusFigure()
     makeKleinFigure()
+    #makeTorusDistanceFigure()
