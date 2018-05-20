@@ -108,6 +108,7 @@ def getHamiltonianPath(mesh):
     print "len(T.edges) = ", len(T.edges())
 
     ## Step 5: Use the spanning tree to connect all cycles into one big cycle
+    cycleRet = None
     for (cid1, cid2) in T.edges():
         f1 = mesh.faces[T[cid1][cid2]['f1']]
         f2 = mesh.faces[T[cid1][cid2]['f2']]
@@ -131,13 +132,13 @@ def getHamiltonianPath(mesh):
         newCycle = cycle1 + [a, c] + cycle2 + [d, b]
         cycles[cid1] = newCycle
         cycles[cid2] = newCycle
-    # for c in cycles:
-    #     print len(c), " ",
-    # print ""
-    cycle = cycles[0]
-    print "len(cycle) = ", len(cycle)
+        cycleRet = newCycle
+    for c in cycles:
+        print len(c), " ",
+    print ""
+    print "len(cycle) = ", len(cycleRet)
     print "len(faces) = ", len(faces)
     print "(len(cycles)-1)*2 + len(faces) = ", (len(cycles)-1)*2 + len(faces)
 
     Vs = np.array(Vs)
-    return [Vs[cycles[0], :]]
+    return [Vs[cycleRet, :]]

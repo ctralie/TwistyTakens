@@ -54,12 +54,6 @@ def getBulgingSphereTimeSeries(theta, phi):
 
     return (X, d.flatten())
 
-"""
-    NPeriods : int
-        Number of periods wrapping around the circle part of the Klein bottle as
-        it goes from bottom to top
-"""
-
 def getKleinTimeSeries(T1, slope, eps = 0.02):
     """
     Make a Klein bottle time series
@@ -90,6 +84,59 @@ def getKleinTimeSeries(T1, slope, eps = 0.02):
         x = x[idx]
         y = y[idx]
     return np.cos(2*x) + np.cos(x)*np.sin(y) + np.cos(y)
+    
+
+def getTorusDistance(x, theta, phi, alpha_theta = 1.0, alpha_phi = 1.0, L1 = False):
+    """
+    Get a distance from points to an observation point x on the torus
+    Parameters
+    ----------
+    x : ndarray (2)
+        Position of observation point (theta, phi)
+    theta : ndarray (N)
+        Theta (x) coordinates of points on the flow
+    phi : ndarray (N)
+        Phi (y) coordinates of points on the flow
+    alpha_theta : float
+        Weight of metric along the x direction
+    alpha_phi : float
+        Weight of metric along the y direction
+    """
+    dx = np.abs(x[0]-theta)
+    dx = np.minimum(dx, np.abs(x[0]+2*np.pi-theta))
+    dx = np.minimum(dx, np.abs(x[0]-2*np.pi-theta))
+    dy = np.abs(x[1]-phi)
+    dy = np.minimum(dy, np.abs(x[1]+2*np.pi-phi))
+    dy = np.minimum(dy, np.abs(x[1]-2*np.pi-phi))
+    dx = alpha_theta*dx 
+    dy = alpha_phi*dy 
+    if L1:
+        dist = dx + dy
+    else:
+        dist = np.sqrt(dx**2 + dy**2)
+    return dist
+
+def getKleinDistance(x1, theta, phi, alpha_theta = 1.0, alpha_phi = 1.0, L1 = False):
+    """
+    Get a distance from points to an observation point x on the Klein bottle, where
+    the points are specified on its double cover on [0, 2*pi] x [0, 2*pi] and the
+    identification is [x, y] ~ [x + pi, -y]
+    x1 : ndarray (2)
+        Position of observation point on the double cover (theta, phi)
+    theta : ndarray (N)
+        Theta (x) coordinates of points on the flow
+    phi : ndarray (N)
+        Phi (y) coordinates of points on the flow
+    alpha_theta : float
+        Weight of metric along the x direction
+    alpha_phi : float
+        Weight of metric along the y direction
+    """
+    x2 = [x1[0]+np.pi, -x1[1]] #Quotient map
+    x2 = np.mod(x2, 2*np.pi)
+    d1 = getTorusDistance(x1, theta, phi, alpha_theta, alpha_phi, L1)
+    d2 = getTorusDistance(x2, theta, phi, alpha_theta, alpha_phi, L1)
+    return np.minimum(d1, d2)
 
 def doSphereExample():
     np.random.seed(100)

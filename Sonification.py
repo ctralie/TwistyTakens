@@ -26,4 +26,4 @@ if __name__ == '__main__':
     #phi = 1.0/phi
     phi = np.sqrt(2)
     makeTorusSound(phi)
-    makeKleinSound(eps=-5)
+    makeKleinSound(eps=0.005)

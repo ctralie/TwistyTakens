@@ -91,7 +91,7 @@ class MeshViewerCanvas(BasicMeshCanvas):
         glLineWidth(2)
         glColor3f(1.0, 0, 1.0)
         glDrawArrays(GL_LINES, 0, N)
-        glPointSize(10)
+        glPointSize(1)
         glColor3f(0.9, 0, 0.9)
         glDrawArrays(GL_POINTS, 0, N)
         self.hamVBO.unbind()
@@ -118,6 +118,7 @@ class MeshViewerCanvas(BasicMeshCanvas):
         V = np.zeros((0, 3))
         print "len(cycles) = ", len(cycles)
         for c in cycles:
+            sio.savemat("c.mat", {"c":c})
             v = np.zeros((c.shape[0]*2, 3))
             v[0::2, :] = c
             v[1:-1:2, :] = c[1::, :]
