@@ -5,7 +5,6 @@ import scipy.io as sio
 from SlidingWindow import *
 from Utilities import *
 from sklearn.decomposition import PCA
-from DiffusionMaps import *
 from Manifolds2D import *
 from ripser import Rips
 from matplotlib.patches import Polygon
