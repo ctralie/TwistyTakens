@@ -1,23 +1,20 @@
 import numpy as np
 from Utilities import *
 
-def getSphereTimeSeries(theta, phi, geodesic = False):
+def getSphereTimeSeries(theta, phi, u, geodesic = False):
     N = phi.size
     X = np.zeros((N, 3))
     X[:, 0] = np.cos(theta)*np.cos(phi)
     X[:, 1] = np.sin(theta)*np.cos(phi)
     X[:, 2] = np.sin(phi)
     
-    u = np.random.randn(3, 1)
-    u = u/np.sqrt(np.sum(u**2))
-    
     d = X.dot(u)
     d[d < -1] = -1
     d[d > 1] = 1
-    
+
     x = d
     if geodesic:
-        x = obsFn(d)
+        x = np.arccos(d)
     return x.flatten()
 
 
@@ -166,6 +163,3 @@ def doKleinExample():
     x = getKleinTimeSeries(40, 0.05)
     plt.plot(x)
     plt.show()
-
-if __name__ == '__main__':
-    doKleinExample()
