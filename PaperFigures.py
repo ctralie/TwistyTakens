@@ -345,9 +345,10 @@ def makeSphereFigure():
     u = np.random.randn(3, 1)
     u = u/np.sqrt(np.sum(u**2))
 
-    T = 20
-    Win = 30
-    NPeriods = 20
+    T = 30
+    NPeriods = 30
+    Win = T
+    NPeriods = 30
     N = T*NPeriods
     theta = np.linspace(0, 2*np.pi*NPeriods, N)
     theta = np.mod(theta, 2*np.pi)
@@ -368,16 +369,17 @@ def makeSphereFigure():
     c = plt.get_cmap('Spectral')
     C = c(np.array(np.round(np.linspace(0, 255, X.shape[0])), dtype=np.int32))
     C = C[:, 0:3]
+    sio.savemat("SphereData.mat", {"XTraj":XTraj, "u":u, "C":C})
 
-    plt.subplot(231)
+    plt.subplot(234)
     plt.title("Vector Field / Distance View 1")
     plt.axis('off')
 
-    plt.subplot(232)
+    plt.subplot(235)
     plt.title("Vector Field / Distance View 2")
     plt.axis('off')
 
-    plt.subplot(234)
+    plt.subplot2grid((2, 3), (0, 0), colspan=2)
     drawLineColored(np.arange(X.shape[0]), x[0:X.shape[0]], C)
     ax = plt.gca()
     #Draw sliding window
@@ -399,7 +401,7 @@ def makeSphereFigure():
     plt.xlabel("Sample Number")
     plt.ylabel("Observation Function")
 
-    plt.subplot(235)
+    plt.subplot(233)
     r = Rips(maxdim=2)
     r.fit_transform(X)
     r.plot(show=False)
@@ -417,15 +419,16 @@ def makeSphereFigure():
     plt.savefig("SphereDist.svg", bbox_inches='tight')
 
 
-def makeRP2Figure():
+def makeRP2Figure(randomSeed = -1):
     np.random.seed(6)
     u = np.random.randn(3, 1)
     u = u/np.sqrt(np.sum(u**2))
 
     cocycle_idx = [0]
     NLandmarks=200
-    T = 20
-    NPeriods = 20
+    T = 30
+    Win = T
+    NPeriods = 30
     N = T*NPeriods
     theta = np.linspace(0, 2*np.pi*NPeriods, N)
     theta = np.mod(theta, 2*np.pi)
@@ -440,8 +443,9 @@ def makeRP2Figure():
     x = np.abs(x)
     x[x > 1] = 1
     x = np.arccos(x).flatten()
+    print(len(x))
 
-    X = getSlidingWindowNoInterp(x, T)
+    X = getSlidingWindowNoInterp(x, Win)
     pca = PCA(n_components=3)
     Y = pca.fit_transform(X)
     fig = plt.figure(figsize=(15, 10))
@@ -450,36 +454,115 @@ def makeRP2Figure():
     C = c(np.array(np.round(np.linspace(0, 255, X.shape[0])), dtype=np.int32))
     C = C[:, 0:3]
 
+    #Draw vector field
     plt.subplot(231)
     plt.title("Vector Field")
+    ax = plt.gca()
+    thetagrid = np.linspace(0, 2*np.pi, 200)
+    phigrid = np.linspace(-np.pi/2, 0, 200)
+    [thetagrid, phigrid] = np.meshgrid(thetagrid, phigrid)
+    Y = np.zeros((thetagrid.size, 3))
+    thetagrid, phigrid = thetagrid.flatten(), phigrid.flatten()
+    Y[:, 0] = np.cos(thetagrid)*np.cos(phigrid)
+    Y[:, 1] = np.sin(thetagrid)*np.cos(phigrid)
+    Y[:, 2] = np.sin(phigrid)
+    y = np.dot(Y, u)
+    y = np.abs(y)
+    y[y > 1] = 1
+    y = np.arccos(y).flatten()
+    y = y/np.max(y)
+    c = plt.get_cmap('gray')
+    CObj = c(np.array(np.round(y*255), dtype=np.int32))
+    CObj = CObj[:, 0:3]
+    idxperm = getGreedyPermEuclidean(Y[:, 0:2], 3000)['perm']
+    plt.scatter(Y[idxperm, 0], Y[idxperm, 1], c=CObj[idxperm, :])
+    
+    #Now draw vector field
+    #plt.scatter(XTraj[0:X.shape[0], 0], XTraj[0:X.shape[0], 1], c=C)
+    AW = 0.05
+    AXW = 0.005
+    idxperm = getGreedyPermEuclidean(XTraj[0:X.shape[0], 0:2], 200)['perm']
+    for i in idxperm:
+        p1 = XTraj[i, 0:2]
+        p2 = XTraj[i+1, 0:2]
+        rx = 0.6*(p2 - p1)
+        if np.sqrt(np.sum(rx**2)) > 1:
+            continue
+        ax.arrow(p1[0], p1[1], rx[0], rx[1], head_width = AW, head_length = AW, fc = C[i, :], ec = C[i, :], width = AXW)
+    ax.arrow(-0.1, 1.05, 0.001, 0, head_width = 0.15, head_length = 0.2, fc = 'c', ec = 'c', width = 0)
+    ax.arrow(0.1, -1.05, -0.001, 0, head_width = 0.15, head_length = 0.2, fc = 'c', ec = 'c', width = 0)
+    t = np.linspace(0, 2*np.pi, 200)
+    plt.plot(1.05*np.cos(t), 1.05*np.sin(t), 'c')
+    plt.axis('equal')
+    ax.set_xticks([])
+    ax.set_yticks([])
+    plt.scatter(u[0], u[1], 100, 'r')
 
-    plt.subplot(232)
+    ax.set_axis_bgcolor((0.15, 0.15, 0.15))
+
+    plt.subplot2grid((2, 3), (0, 1), colspan=2)
     drawLineColored(np.arange(X.shape[0]), x[0:X.shape[0]], C)
     ax = plt.gca()
+    #Draw sliding window
+    AW = 0.05
+    AXW = 0.005
+    y1, y2 = np.min(x), np.max(x)
+    pad = 0.05*(y2-y1)
+    c = np.array([1.0, 0.737, 0.667])
+    ax.arrow(Win, y2+0.3*pad, 20, 0, head_width = AW, head_length = 10, fc = c, ec = c, width = AXW)
+    ax.arrow(Win, y1-0.3*pad, 20, 0, head_width = AW, head_length = 10, fc = c, ec = c, width = AXW)
+    y1 = y1 - pad
+    y2 = y2 + pad
+    plt.plot([0, Win], [y1, y1], c=c)
+    plt.plot([0, Win], [y2, y2], c=c)
+    plt.plot([0, 0], [y1, y2], c=c)
+    plt.plot([Win, Win], [y1, y2], c=c)
     ax.set_axis_bgcolor((0.15, 0.15, 0.15))
     plt.title("Time Series")
     plt.xlabel("Sample Number")
     plt.ylabel("Observation Function")
 
-    plt.subplot(233)
-    res = ProjCoords(X, NLandmarks, cocycle_idx = cocycle_idx, proj_dim=2, perc = 0.9)
-    SFinal = getStereoProjCodim1(res['X'])
-    plotRP2Stereo(SFinal, C)
-
     plt.subplot(234)
+    res = ProjCoords(X, NLandmarks, cocycle_idx = cocycle_idx, proj_dim=2, perc = 0.9)
+    SFinal = getStereoProjCodim1(res['X'], randomSeed)
+    #plotRP2Stereo(SFinal, C)
+    ax = plt.gca()
+
+    idxperm = getGreedyPermEuclidean(SFinal[0:-1, :], 200)['perm']
+    for i in idxperm:
+        p1 = SFinal[i, 0:2]
+        p2 = SFinal[i+1, 0:2]
+        rx = 0.6*(p2 - p1)
+        if np.sqrt(np.sum(rx**2)) > 1:
+            continue
+        ax.arrow(p1[0], p1[1], rx[0], rx[1], head_width = AW, head_length = AW, fc = C[i, :], ec = C[i, :], width = AXW)
+    ax.arrow(-0.1, 1.05, 0.001, 0, head_width = 0.15, head_length = 0.2, fc = 'c', ec = 'c', width = 0)
+    ax.arrow(0.1, -1.05, -0.001, 0, head_width = 0.15, head_length = 0.2, fc = 'c', ec = 'c', width = 0)
+    t = np.linspace(0, 2*np.pi, 200)
+    plt.plot(1.05*np.cos(t), 1.05*np.sin(t), 'c')
+    plt.axis('equal')
+    ax.set_xticks([])
+    ax.set_yticks([])
+    ax.set_axis_bgcolor((0.15, 0.15, 0.15))
+
+    plt.title("Sliding Window Projective Coordinates")
+
+    idxperm = getGreedyPermEuclidean(X, 400)['perm']
+    X = X[idxperm, :]
+
+    plt.subplot(235)
     r = Rips(maxdim=2)
     r.fit_transform(X)
     r.plot(show=False)
     plt.title("$\\mathbb{Z}/2$")
 
-    plt.subplot(235)
+    plt.subplot(236)
     r = Rips(maxdim=2, coeff=3)
     r.fit_transform(X)
     r.plot(show=False)
     plt.title("$\\mathbb{Z}/3$")
-    
 
-    plt.savefig("ProjDist.svg", bbox_inches='tight')
+    plt.savefig("ProjDist%i.svg"%randomSeed, bbox_inches='tight')
 
 
 if __name__ == '__main__':
@@ -489,4 +572,4 @@ if __name__ == '__main__':
     #makeTorusFigure(distance = False)
     #makeKleinFigure(distance = True)
     #makeSphereFigure()
-    makeRP2Figure()
+    makeRP2Figure(randomSeed = 48)
