@@ -11,46 +11,7 @@ from matplotlib.patches import Polygon
 import sys 
 sys.path.append("DREiMac")
 from ProjectiveCoordinates import *
-
-def makeTorusCircularCoordsFigure():
-    """
-    Show an example of a time series that yields a torus
-    Plot ground truth phases, as well as Laplacian estimated phases
-    and a persistence diagram
-    """
-    subsample = 4.0
-    t = np.arange(500)/subsample
-    theta = np.mod(0.5*(1+np.sqrt(5))*t, 2*np.pi)
-    phi = np.mod(t, 2*np.pi)
-    x = np.cos(theta) + 0.8*np.cos(phi)
-
-
-    #Sliding window
-    X = getSlidingWindow(x, 10, subsample, 1)
-    c = plt.get_cmap('Spectral')
-    C = c(np.array(np.round(np.linspace(0, 255, X.shape[0])), dtype=np.int32))
-    C = C[:, 0:3]
-
-    plt.subplot(142)
-    plt.scatter(theta[0:X.shape[0]], phi[0:X.shape[0]], 20, c=C, edgecolor='none')
-    ax = plt.gca()
-    ax.set_axis_bgcolor((0.15, 0.15, 0.15))
-    plt.xlabel("$(1+\\sqrt{5})t/2$")
-    plt.ylabel("$t$")
-    plt.title("Ground Truth Phases")
-    plotSlidingWindowResults(x, X, projType=CIRC_COORDS_LAPLACIAN, doTDA=True, subsample=subsample, p=2)
-    plt.subplot(141)
-    plt.title("$g(t) = 0.8 \\cos \\left( \\frac{1+\\sqrt{5}}{2} t \\right) + \\cos(t)$")
-    plt.show()
-
-    Y = getDiffusionMap(getSSM(X), 0.1)
-    plt.subplot(143)
-    phi = np.arctan2(Y[:, -2], Y[:, -3])
-    theta = np.arctan2(Y[:, -4], Y[:, -5])
-    plt.scatter(theta, phi, 20, c=C, edgecolor='none')
-    ax = plt.gca()
-    ax.set_axis_bgcolor((0.15, 0.15, 0.15))
-    plt.show()
+from CircularCoordinates import *
 
 def makeKleinProjCoordsFigure():
     T = 30
@@ -126,36 +87,43 @@ def makeKleinProjCoordsFigure():
 
     plt.savefig("KleinProj.svg", bbox_inches='tight')
 
+def cocyclestr(ccl):
+    s = "%i"%ccl[0]
+    for i in range(1, len(ccl)):
+        s = s + " + %i"%ccl[i]
+    return s
 
-    X = getSlidingWindow(x, 10, subsample, 1)
-
-
-def makeTorusFigure(distance = True, ratio = np.sqrt(2)):
-    subsample = 4.0
-    t = np.arange(500)/subsample
-    theta = np.mod(ratio*t, 2*np.pi)
-    phi = np.mod(t, 2*np.pi)
-    T = 30
-    Win = T
-
-    np.random.seed(4)
+def makeTorusFigure(distance = True, ratio = np.sqrt(2), do_scatterplots = False):
+    prows = 1
+    if do_scatterplots:
+        prows = 2
+    T1 = 30
+    NPeriods = 30
+    thetagt = np.linspace(0, 2*np.pi*NPeriods, T1*NPeriods)
+    phigt = thetagt * np.sqrt(2)
+    thetagt = np.mod(thetagt, 2*np.pi)
+    phigt = np.mod(phigt, 2*np.pi)
+    Win = int(T1*1.5)
     x1 = [6, np.pi]
+    prime = 41
+    cocycle1 = [0]
+    cocycle2 = [0, 1]
 
     # Get the correct distance under the quotient
     if distance:
-        x = getTorusDistance(x1, theta, phi)
+        x = getTorusDistance(x1, thetagt, phigt)
     else:
-        x = np.cos(theta) + np.cos(phi)
+        x = np.cos(thetagt) + np.cos(phigt)
     X = getSlidingWindowNoInterp(x, Win)
 
     c = plt.get_cmap('Spectral')
     C = c(np.array(np.round(np.linspace(0, 255, X.shape[0])), dtype=np.int32))
     C = C[:, 0:3]
 
-    plt.figure(figsize=(14, 4))
+    plt.figure(figsize=(18, 4*prows))
     #Plot distance function sampled on a grid
-    plt.subplot(141)
-    res = 400
+    plt.subplot(prows, 4, 1)
+    res = 100
     thetagrid = np.linspace(0, 2*np.pi, res)
     [thetagrid, phigrid] = np.meshgrid(thetagrid, thetagrid)
     if distance:
@@ -163,28 +131,29 @@ def makeTorusFigure(distance = True, ratio = np.sqrt(2)):
     else:
         obsfn = np.cos(thetagrid) + np.cos(phigrid)
     plt.imshow(obsfn, cmap = 'gray', extent = (0, 2*np.pi, 2*np.pi, 0), interpolation = 'none')
-    #Show observation points
-    if distance:
-        plt.scatter([x1[0]], [x1[1]])
     
     AW = 0.05
     AXW = 0.005
     ax = plt.gca()
-    print(theta[0])
-    #for i in np.arange(X.shape[0]):#np.random.permutation(X.shape[0])[0:50]:
-    Theta = np.zeros((phi.size, 2))
-    Theta[:, 0] = theta
-    Theta[:, 1] = phi
+    """
+    Theta = np.zeros((phigt.size, 2))
+    Theta[:, 0] = thetagt
+    Theta[:, 1] = phigt
     Theta = Theta[0:X.shape[0], :]
-    idxperm = getGreedyPermEuclidean(Theta, 100)['perm']
-
-    for i in idxperm:
-        p1 = np.array([theta[i], phi[i]])
-        p2 = np.array([theta[i+1], phi[i+1]])
+    idxperm = getGreedyPermEuclidean(Theta, 400)['perm']
+    """
+    for i in range(X.shape[0] - 1):
+        p1 = np.array([thetagt[i], phigt[i]])
+        p2 = np.array([thetagt[i+1], phigt[i+1]])
         rx = 0.5*(p2 - p1)
         if np.sqrt(np.sum(rx**2)) > 1:
             continue
         ax.arrow(p1[0], p1[1], rx[0], rx[1], head_width = AW, head_length = AW, fc = C[i, :], ec = C[i, :], width = AXW)
+    
+    #Show observation points
+    if distance:
+        plt.scatter([x1[0]], [x1[1]])
+    
     plt.xticks([0, np.pi, 2*np.pi], ["0", "$\\pi$", "$2\\pi$"])
     plt.yticks([0, np.pi, 2*np.pi], ["0", "$\\pi$", "$2\\pi$"])
     plt.gca().invert_yaxis()
@@ -193,7 +162,7 @@ def makeTorusFigure(distance = True, ratio = np.sqrt(2)):
     plt.title("Observation Function")
 
     #plt.subplot2grid((1, 4), (0, 1), colspan=3)
-    plt.subplot(132)
+    plt.subplot(prows, 4, 2)
     ax = plt.gca()
     drawLineColored(np.arange(X.shape[0]), x[0:X.shape[0]], C)
     #Draw sliding window
@@ -213,16 +182,65 @@ def makeTorusFigure(distance = True, ratio = np.sqrt(2)):
     plt.xlabel("Sample Number")
     plt.ylabel("Observation Function")
 
-    plt.subplot(133)
-    r = Rips(maxdim=2)
-    r.fit_transform(X)
-    r.plot(show=False)
-    plt.title("$\\mathbb{Z}/2$")
+    #Now compute circular coordinates
+    NLandmarks = 400
+    res = CircularCoords(X, NLandmarks, prime=prime, maxdim=2, cocycle_idx = cocycle1, perc=0.5)
+    rips = res["rips"]
+    theta = res["thetas"]
+    idx_p1 = res["idx_p1"]
+    dgm1 = 2*res["dgm1"]
+    phi = CircularCoords(X, NLandmarks, prime=prime, cocycle_idx = cocycle2, perc=0.5)["thetas"]
+
+    plt.subplot(prows, 4, 3)
+    rips.plot(show=False)
+    plt.text(dgm1[idx_p1[0], 0], dgm1[idx_p1[0], 1], "0")
+    plt.text(dgm1[idx_p1[1], 0], dgm1[idx_p1[1], 1], "1")
+    plt.title("$\\mathbb{Z} / %i$, %i Landmarks"%(prime, NLandmarks))
+
+    # Unwrap circular coordinates and shift to start at (0, 0) with positive slope
+    theta = np.unwrap(theta) + 1
+    phi = np.unwrap(phi) + 1
+    avgslope = (phi[-1]-0 + 1)/(theta[-1]-theta[0])
+    avgslope = np.abs(avgslope)
+    if theta[-1] < theta[0] + 1:
+        theta *= -1
+    theta = np.mod(theta-theta[0], 2*np.pi)
+    if phi[-1] < phi[0]:
+        phi *= -1
+    phi = np.mod(phi-phi[0], 2*np.pi)
+    plt.subplot(prows, 4, 4)
+    ax = plt.gca()
+    for i in range(theta.size - 1):
+        p1 = np.array([theta[i], phi[i]])
+        p2 = np.array([theta[i+1], phi[i+1]])
+        rx = 0.5*(p2 - p1)
+        if np.sqrt(np.sum(rx**2)) > 1:
+            continue
+        ax.arrow(p1[0], p1[1], rx[0], rx[1], head_width = AW, head_length = AW, fc = C[i, :], ec = C[i, :], width = AXW)
+    plt.xticks([0, 2*np.pi], ["0", "$2\\pi$"])
+    plt.yticks([0, 2*np.pi], ["0", "$2\\pi$"])
+    plt.xlabel("Cocycle %s"%cocyclestr(cocycle1))
+    plt.ylabel("Cocycle %s"%cocyclestr(cocycle2))
+    plt.title("Circular Coordinates, Slope = %.3g"%avgslope)
+    ax.set_axis_bgcolor((0.15, 0.15, 0.15))
+
+    theta, thetagt = np.unwrap(theta), np.unwrap(thetagt)
+    phi, phigt = np.unwrap(phi), np.unwrap(phigt)
+
+    if do_scatterplots:
+        plt.subplot(245)
+        plt.scatter(thetagt[0:theta.size], theta)
+        plt.xlabel("X")
+        plt.ylabel("Cocycle %s"%cocyclestr(cocycle1))
+        plt.subplot(246)
+        plt.scatter(phigt[0:phi.size], phi)
+        plt.xlabel("Y")
+        plt.ylabel("Cocycle %s"%cocyclestr(cocycle2))
 
     if distance:
-        plt.savefig("TorusDist.svg", bbox_inches='tight')
+        plt.savefig("TorusDist_%i.svg"%NLandmarks, bbox_inches='tight')
     else:
-        plt.savefig("TorusFourier.svg", bbox_inches='tight')
+        plt.savefig("TorusFourier_%i.svg"%NLandmarks, bbox_inches='tight')
 
 def makeKleinFigure(distance = True):
     eps = 0.02
@@ -254,6 +272,7 @@ def makeKleinFigure(distance = True):
         x = getKleinDistance(x1, theta, phi, alpha_theta, alpha_phi, L1)
     else:
         x = np.cos(2*theta) + np.cos(theta)*np.sin(phi) + np.cos(phi)
+        #x = np.cos(theta)*np.sin(phi) + np.cos(phi)
     X = getSlidingWindowNoInterp(x, Win)
 
     c = plt.get_cmap('Spectral')
@@ -270,6 +289,7 @@ def makeKleinFigure(distance = True):
         obsfn = getKleinDistance(x1, thetagrid, phigrid, alpha_theta, alpha_phi, L1)
     else:
         obsfn = np.cos(2*thetagrid) + np.cos(thetagrid)*np.sin(phigrid) + np.cos(phigrid)
+        #obsfn = np.cos(thetagrid)*np.sin(phigrid) + np.cos(phigrid)
     plt.imshow(obsfn, cmap = 'gray', extent = (0, 2*np.pi, 2*np.pi, 0), interpolation = 'none')
     #Show observation points
     if distance:
@@ -523,7 +543,8 @@ def makeRP2Figure(randomSeed = -1):
     plt.ylabel("Observation Function")
 
     plt.subplot(234)
-    res = ProjCoords(X, NLandmarks, cocycle_idx = cocycle_idx, proj_dim=2, perc = 0.9)
+    prime = 41
+    res = ProjCoords(X, NLandmarks, prime=prime, cocycle_idx = cocycle_idx, proj_dim=2, perc = 0.9)
     SFinal = getStereoProjCodim1(res['X'], randomSeed)
     #plotRP2Stereo(SFinal, C)
     ax = plt.gca()
@@ -554,22 +575,21 @@ def makeRP2Figure(randomSeed = -1):
     r = Rips(maxdim=2)
     r.fit_transform(X)
     r.plot(show=False)
-    plt.title("$\\mathbb{Z}/2$")
+    plt.title("$\\mathbb{Z}/%i$"%prime)
 
     plt.subplot(236)
     r = Rips(maxdim=2, coeff=3)
     r.fit_transform(X)
     r.plot(show=False)
-    plt.title("$\\mathbb{Z}/3$")
+    plt.title("$\\mathbb{Z}/%i$"%prime)
 
     plt.savefig("ProjDist%i.svg"%randomSeed, bbox_inches='tight')
 
 
 if __name__ == '__main__':
-    #makeTorusCircularCoordsFigure()
     #makeKleinProjCoordsFigure()
-    #makeTorusFigure(distance = True)
-    #makeTorusFigure(distance = False)
-    #makeKleinFigure(distance = True)
+    makeTorusFigure(distance = True)
+    makeTorusFigure(distance = False)
+    #makeKleinFigure(distance = False)
     #makeSphereFigure()
-    makeRP2Figure(randomSeed = 48)
+    #makeRP2Figure(randomSeed = 48)

@@ -9,7 +9,6 @@ import scipy.special
 from ripser import Rips
 import sys 
 sys.path.append("DREiMac/")
-from CircularCoordinates import getCircularCoordinates
 from Laplacian import getTorusCoordinates
 
 """
