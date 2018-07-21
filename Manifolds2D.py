@@ -135,6 +135,73 @@ def getKleinDistance(x1, theta, phi, alpha_theta = 1.0, alpha_phi = 1.0, L1 = Fa
     d2 = getTorusDistance(x2, theta, phi, alpha_theta, alpha_phi, L1)
     return np.minimum(d1, d2)
 
+def intersectSegments2D(A, B, C, D, countEndpoints = True):
+    """
+    Find the intersection of two lines segments in a numerically stable
+    way by looking at them parametrically
+    """
+    denomDet = (D[0]-C[0])*(A[1]-B[1]) - (D[1]-C[1])*(A[0]-B[0])
+    if (denomDet == 0): #Segments are parallel
+        return np.array([])
+    num_t = (A[0]-C[0])*(A[1]-B[1]) - (A[1]-C[1])*(A[0]-B[0])
+    num_s = (D[0]-C[0])*(A[1]-C[1]) - (D[1]-C[1])*(A[0]-C[0])
+    t = float(num_t) / float(denomDet)
+    s = float(num_s) / float(denomDet)
+    if (s < 0 or s > 1):
+        return np.array([]) #Intersection not within the bounds of segment 1
+    if (t < 0 or t > 1):
+        return np.array([]) #Intersection not within the bounds of segment 2
+    #Don't count intersections that occur at the endpoints of both segments
+    #if the user so chooses
+    if ((t == 0 or t == 1) and (s == 0 or s == 1) and (not countEndpoints)):
+        return np.array([])
+    ret = A + s*(B-A)
+    return ret
+
+def get2HoledTorusTraj(x0, dx, NPoints):
+    """
+    Come up with a trajectory on the unit octagon representation
+    of the 2-holed torus
+    Parameters
+    ----------
+    x0 : ndarray (2, 1)
+        Initial position on the 2-holed torus
+    dx : ndarray (2, 1)
+        Vector between adjacent points on the trajectory
+    NPoints : int
+        Number of points on the trajectory
+    """
+    x0 = np.array(x0)
+    dx = np.array(dx)
+    thetas = np.linspace(0, 2*np.pi, 9) - np.pi/8
+    endpts = np.zeros((9, 2))
+    endpts[:, 0] = np.cos(thetas)
+    endpts[:, 1] = np.sin(thetas)
+    normals = endpts[1::, :] - endpts[0:-1, :]
+    normals[:, 0], normals[:, 1] = normals[:, 1], -normals[:, 0]
+    normals = normals/np.sqrt(np.sum(normals**2, 1))[:, None]
+    width = endpts[0, 0] - endpts[5, 0]
+
+    X = [x0]
+    for i in range(1, NPoints):
+        x1 = X[i-1]
+        x2 = x1 + dx
+        # Check if out of bounds of torus
+        k = 0
+        while k < 8:
+            res = intersectSegments2D(x1, x2, endpts[k, :], endpts[k+1, :])
+            if res.size > 0:
+                x1 = res - width*normals[k, :] #Go to other side of octagon
+                x2 = x1 + (x2 - res)
+                x1 = x1+1e-10*normals[k, :]
+                k = 0
+                continue
+            k += 1
+        X.append(x2)
+    X = np.array(X)
+    return {'X':X, 'endpts':endpts}
+
+
 def doSphereExample():
     np.random.seed(100)
     N = 6000
@@ -162,4 +229,24 @@ def doSphereExample():
 def doKleinExample():
     x = getKleinTimeSeries(40, 0.05)
     plt.plot(x)
+    plt.show()
+
+if __name__ == '__main__':
+    x0 = [0.1, 0.1]
+    dx = [0.02, 0.1]
+    res = get2HoledTorusTraj(x0, dx, 500)
+    endpts, X = res['endpts'], res['X']
+
+    c = plt.get_cmap('Spectral')
+    C = c(np.array(np.round(np.linspace(0, 255, X.shape[0])), dtype=np.int32))
+    C = C[:, 0:3]
+
+
+    plt.plot(endpts[:, 0], endpts[:, 1])
+    plt.scatter(x0[0], x0[1], 80, 'k')
+    
+    #X = X[0:400, :]
+    #C = C[0:400, :]
+    plt.scatter(X[:, 0], X[:, 1], 20, c=C)
+    plt.axis('equal')
     plt.show()
