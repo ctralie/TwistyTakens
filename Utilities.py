@@ -101,7 +101,6 @@ Plotting Tools
 """
 
 def drawLineColored(idx, x, C):
-    plt.hold(True)
     for i in range(len(x)-1):
         plt.plot(idx[i:i+2], x[i:i+2], c=C[i, :])
 

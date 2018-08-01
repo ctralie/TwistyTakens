@@ -6,9 +6,10 @@ from SlidingWindow import *
 from Utilities import *
 from sklearn.decomposition import PCA
 from Manifolds2D import *
-from ripser import Rips
+from ripser import Rips, ripser, plot_dgms
 from matplotlib.patches import Polygon
 import sys 
+import time
 sys.path.append("DREiMac")
 from ProjectiveCoordinates import *
 from CircularCoordinates import *
@@ -36,7 +37,7 @@ def makeKleinProjCoordsFigure():
     plt.subplot2grid((1, 4), (0, 0), colspan=2)
     drawLineColored(np.arange(M), x[0:M], C)
     ax = plt.gca()
-    ax.set_axis_bgcolor((0.15, 0.15, 0.15))
+    ax.set_facecolor((0.15, 0.15, 0.15))
     plt.xlabel("Sample Number")
     plt.ylabel("Observation")
     plt.title("Klein Bottle Time Series")
@@ -62,7 +63,7 @@ def makeKleinProjCoordsFigure():
     plt.plot(np.cos(t), np.sin(t), 'c')
     plt.axis('equal')
     ax = plt.gca()
-    ax.set_axis_bgcolor((0.15, 0.15, 0.15))
+    ax.set_facecolor((0.15, 0.15, 0.15))
     ax.set_xticks([])
     ax.set_yticks([])
     plt.title("Projective Coordinates First Half")
@@ -80,7 +81,7 @@ def makeKleinProjCoordsFigure():
     plt.plot(np.cos(t), np.sin(t), 'c')
     plt.axis('equal')
     ax = plt.gca()
-    ax.set_axis_bgcolor((0.15, 0.15, 0.15))
+    ax.set_facecolor((0.15, 0.15, 0.15))
     ax.set_xticks([])
     ax.set_yticks([])
     plt.title("Projective Coordinates Second Half")
@@ -177,7 +178,7 @@ def makeTorusFigure(distance = True, ratio = np.sqrt(2), do_scatterplots = False
     plt.plot([0, Win], [y2, y2], c=c)
     plt.plot([0, 0], [y1, y2], c=c)
     plt.plot([Win, Win], [y1, y2], c=c)
-    ax.set_axis_bgcolor((0.15, 0.15, 0.15))
+    ax.set_facecolor((0.15, 0.15, 0.15))
     plt.title("Time Series")
     plt.xlabel("Sample Number")
     plt.ylabel("Observation Function")
@@ -222,7 +223,7 @@ def makeTorusFigure(distance = True, ratio = np.sqrt(2), do_scatterplots = False
     plt.xlabel("Cocycle %s"%cocyclestr(cocycle1))
     plt.ylabel("Cocycle %s"%cocyclestr(cocycle2))
     plt.title("Circular Coordinates, Slope = %.3g"%avgslope)
-    ax.set_axis_bgcolor((0.15, 0.15, 0.15))
+    ax.set_facecolor((0.15, 0.15, 0.15))
 
     theta, thetagt = np.unwrap(theta), np.unwrap(thetagt)
     phi, phigt = np.unwrap(phi), np.unwrap(phigt)
@@ -241,6 +242,8 @@ def makeTorusFigure(distance = True, ratio = np.sqrt(2), do_scatterplots = False
         plt.savefig("TorusDist_%i.svg"%NLandmarks, bbox_inches='tight')
     else:
         plt.savefig("TorusFourier_%i.svg"%NLandmarks, bbox_inches='tight')
+    
+
 
 def makeKleinFigure(distance = True):
     eps = 0.02
@@ -338,7 +341,7 @@ def makeKleinFigure(distance = True):
     plt.plot([0, 0], [y1, y2], c=c)
     plt.plot([Win, Win], [y1, y2], c=c)
 
-    ax.set_axis_bgcolor((0.15, 0.15, 0.15))
+    ax.set_facecolor((0.15, 0.15, 0.15))
     plt.title("Time Series")
     plt.xlabel("Sample Number")
     plt.ylabel("Observation Function")
@@ -416,7 +419,7 @@ def makeSphereFigure():
     plt.plot([0, Win], [y2, y2], c=c)
     plt.plot([0, 0], [y1, y2], c=c)
     plt.plot([Win, Win], [y1, y2], c=c)
-    ax.set_axis_bgcolor((0.15, 0.15, 0.15))
+    ax.set_facecolor((0.15, 0.15, 0.15))
     plt.title("Time Series")
     plt.xlabel("Sample Number")
     plt.ylabel("Observation Function")
@@ -430,7 +433,7 @@ def makeSphereFigure():
     ax = fig.add_subplot(236, projection='3d')
     ax.scatter(Y[:, 0], Y[:, 1], Y[:, 2], c=C)
     plt.axis('equal')
-    ax.set_axis_bgcolor((0.15, 0.15, 0.15))
+    ax.set_facecolor((0.15, 0.15, 0.15))
     ax.set_xticks([])
     ax.set_yticks([])
     ax.set_zticks([])
@@ -518,7 +521,7 @@ def makeRP2Figure(randomSeed = -1):
     ax.set_yticks([])
     plt.scatter(u[0], u[1], 100, 'r')
 
-    ax.set_axis_bgcolor((0.15, 0.15, 0.15))
+    ax.set_facecolor((0.15, 0.15, 0.15))
 
     plt.subplot2grid((2, 3), (0, 1), colspan=2)
     drawLineColored(np.arange(X.shape[0]), x[0:X.shape[0]], C)
@@ -537,7 +540,7 @@ def makeRP2Figure(randomSeed = -1):
     plt.plot([0, Win], [y2, y2], c=c)
     plt.plot([0, 0], [y1, y2], c=c)
     plt.plot([Win, Win], [y1, y2], c=c)
-    ax.set_axis_bgcolor((0.15, 0.15, 0.15))
+    ax.set_facecolor((0.15, 0.15, 0.15))
     plt.title("Time Series")
     plt.xlabel("Sample Number")
     plt.ylabel("Observation Function")
@@ -564,7 +567,7 @@ def makeRP2Figure(randomSeed = -1):
     plt.axis('equal')
     ax.set_xticks([])
     ax.set_yticks([])
-    ax.set_axis_bgcolor((0.15, 0.15, 0.15))
+    ax.set_facecolor((0.15, 0.15, 0.15))
 
     plt.title("Sliding Window Projective Coordinates")
 
@@ -586,10 +589,111 @@ def makeRP2Figure(randomSeed = -1):
     plt.savefig("ProjDist%i.svg"%randomSeed, bbox_inches='tight')
 
 
+
+def make2HoledTorusFigure():
+    x0 = np.array([0.2, 0.2])
+    dx = 0.1*np.array([1.0, np.sqrt(3)/2])
+    res = get2HoledTorusTraj(x0, dx, 750)
+    Win = 40
+    endpts, X = res['endpts'], res['X']
+
+    c = plt.get_cmap('Spectral')
+    C = c(np.array(np.round(np.linspace(0, 255, X.shape[0])), dtype=np.int32))
+    C = C[:, 0:3]
+    y = get2HoledTorusDist(X, x0, endpts)
+
+    Y = getSlidingWindowNoInterp(y, Win)
+    sio.savemat("2HoledTorus.mat", {"X":Y})
+    tic = time.time()
+    dgms = ripser(Y, maxdim=2)['dgms']
+    print("Elapsed Time: %.3g"%(time.time()-tic))
+
+    # Create distance image
+    normals = endpts[1::, :] - endpts[0:-1, :]
+    normals[:, 0], normals[:, 1] = normals[:, 1], -normals[:, 0]
+    pix = np.linspace(-1.1, 1.1, 200)
+    [I, J] = np.meshgrid(pix, pix)
+    XDist = np.zeros((I.size, 2))
+    XDist[:, 0] = I.flatten()
+    XDist[:, 1] = J.flatten()
+    dist = get2HoledTorusDist(XDist, x0, endpts)
+    dist = np.reshape(dist, I.shape)
+    insideOctagon = np.ones(XDist.shape[0])
+    for i in range(8):
+        dot = (XDist - endpts[i, :]).dot(normals[i, :])
+        insideOctagon *= (dot < 0)
+    insideOctagon = np.reshape(insideOctagon, dist.shape)
+    dist[insideOctagon == 0] = 0
+
+
+    plt.figure(figsize=(15, 5))
+    plt.subplot(131)
+    plt.imshow(dist, cmap = 'gray', extent = [pix[0], pix[-1], pix[-1], pix[0]])
+    plt.scatter(x0[0], x0[0], 100, 'r', zorder=10)
+    ax = plt.gca()
+    AW = 0.05
+    AXW = 0.0025
+    idxperm = getGreedyPermEuclidean(X[0:-1, :], 200)['perm']
+    for i in idxperm:
+        p1 = X[i, :]
+        p2 = X[i+1, :]
+        rx = 0.6*(p2 - p1)
+        if np.sqrt(np.sum(rx**2)) > 0.5:
+            continue
+        ax.arrow(p1[0], p1[1], rx[0], rx[1], head_width = AW, head_length = AW, fc = C[i, :], ec = C[i, :], width = AXW)
+    # Plot octagon
+    AW = 0.1
+    AXW = 0.005
+    for i in range(8):
+        p1 = endpts[i, :] + 0.5*(endpts[i+1, :] - endpts[i, :])
+        p2 = endpts[i, :] + 0.51*(endpts[i+1, :] - endpts[i, :])
+        rx = p2 - p1
+        if i >= 4:
+            rx *= -1
+            p1, p2 = p2, p1
+        k = i%4
+        plt.plot(endpts[i:i+2, 0], endpts[i:i+2, 1], c='C%i'%k, linewidth=2)
+        ax.arrow(p1[0], p1[1], rx[0], rx[1], head_width = AW, head_length = AW, fc = 'C%i'%k, ec = 'C%i'%k, width = AXW, zorder=10)
+    plt.xlim([-1.1, 1.1])
+    plt.ylim([-1.1, 1.1])
+    plt.axis('equal')
+    plt.title("Observation Function")
+
+    plt.subplot(132)
+    drawLineColored(np.arange(y.size), y, C)
+    ax = plt.gca()
+    ax = plt.gca()
+    #Draw sliding window
+    AW = 0.05
+    AXW = 0.005
+    y1, y2 = np.min(y), np.max(y)
+    pad = 0.05*(y2-y1)
+    c = np.array([1.0, 0.737, 0.667])
+    ax.arrow(Win, y2+0.3*pad, 20, 0, head_width = AW, head_length = 20, fc = c, ec = c, width = AXW)
+    ax.arrow(Win, y1-0.3*pad, 20, 0, head_width = AW, head_length = 20, fc = c, ec = c, width = AXW)
+    y1 = y1 - pad
+    y2 = y2 + pad
+    plt.plot([0, Win], [y1, y1], c=c)
+    plt.plot([0, Win], [y2, y2], c=c)
+    plt.plot([0, 0], [y1, y2], c=c)
+    plt.plot([Win, Win], [y1, y2], c=c)
+    ax.set_facecolor((0.15, 0.15, 0.15))
+    plt.title("Time Series")
+    plt.xlabel("Sample Number")
+    plt.ylabel("Observation Function")
+
+    plt.subplot(133)
+    plot_dgms(dgms)
+    plt.title("Persistence Diagrams $\mathbb{Z}/2$")
+
+    plt.savefig("2HoledTorus.svg", bbox_inches='tight')
+
+
 if __name__ == '__main__':
     #makeKleinProjCoordsFigure()
-    makeTorusFigure(distance = True)
-    makeTorusFigure(distance = False)
+    #makeTorusFigure(distance = True)
+    #makeTorusFigure(distance = False)
     #makeKleinFigure(distance = False)
     #makeSphereFigure()
     #makeRP2Figure(randomSeed = 48)
+    make2HoledTorusFigure()

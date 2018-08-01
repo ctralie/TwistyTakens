@@ -202,6 +202,30 @@ def get2HoledTorusTraj(x0, dx, NPoints):
     return {'X':X, 'endpts':endpts}
 
 
+def get2HoledTorusDist(X, x0, endpts):
+    """
+    Compute the distance from a set of points to a chosen point on 
+    the 2-holed torus, using the flat Euclidean metric on the octagon
+    Parameters
+    ----------
+    X: ndarray (N, 2)
+        A set of points inside of the octagon
+    x0: ndarray (2)
+        A point to which to measure distances
+    endpts: ndarray (9, 2)
+        Endpoints on the octagon model
+    """
+    offsets = endpts[1:9, :] + endpts[0:8, :]
+    Y = x0 + offsets
+    Y = np.concatenate((x0[None, :], Y), 0)
+    XSqr = np.sum(X**2, 1)
+    YSqr = np.sum(Y**2, 1)
+    D = XSqr[:, None] + YSqr[None, :] - 2*X.dot(Y.T)
+    distSqr = np.min(D, 1)
+    distSqr[distSqr < 0] = 0
+    return distSqr
+
+
 def doSphereExample():
     np.random.seed(100)
     N = 6000
@@ -233,20 +257,23 @@ def doKleinExample():
 
 if __name__ == '__main__':
     x0 = [0.1, 0.1]
-    dx = [0.02, 0.1]
-    res = get2HoledTorusTraj(x0, dx, 500)
+    dx = 3*np.array([0.02*(1+np.sqrt(5))/2, 0.04])
+    res = get2HoledTorusTraj(x0, dx, 1000)
     endpts, X = res['endpts'], res['X']
 
     c = plt.get_cmap('Spectral')
     C = c(np.array(np.round(np.linspace(0, 255, X.shape[0])), dtype=np.int32))
     C = C[:, 0:3]
 
+    x0 = np.array([0.1, 0.1])
+    y = get2HoledTorusDist(X, x0, endpts)
 
+    plt.subplot(121)
     plt.plot(endpts[:, 0], endpts[:, 1])
     plt.scatter(x0[0], x0[1], 80, 'k')
-    
-    #X = X[0:400, :]
-    #C = C[0:400, :]
     plt.scatter(X[:, 0], X[:, 1], 20, c=C)
     plt.axis('equal')
+
+    plt.subplot(122)
+    plt.plot(y)
     plt.show()
