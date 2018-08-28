@@ -689,6 +689,179 @@ def make2HoledTorusFigure():
     plt.savefig("2HoledTorus.svg", bbox_inches='tight')
 
 
+def makeCircularCoordsFigure():
+    np.random.seed(2)
+    prime = 49
+    N = 10000 #Number of initial points in (theta, phi) space
+    NPoints = 1000 #Number of points to evenly subsample in 3D
+    R = 6
+    r = 2
+    theta = np.random.rand(N)*2*np.pi
+    phi = np.random.rand(N)*2*np.pi
+    X = np.zeros((N, 3))
+    X[:, 0] = (R + r*np.cos(theta))*np.cos(phi)
+    X[:, 1] = (R + r*np.cos(theta))*np.sin(phi)
+    X[:, 2] = r*np.sin(theta)
+    # Evenly subsample the points geometrically
+    X = getGreedyPermEuclidean(X, NPoints)['Y']
+    xr = [np.min(X.flatten()), np.max(X.flatten())]
+
+    NLandmarks = 400
+    res = CircularCoords(X, NLandmarks, prime=prime, maxdim=2, cocycle_idx = [0], perc=0.5)
+    rips = res["rips"]
+    theta = res["thetas"]
+    idx_p1 = res["idx_p1"]
+    dgm1 = 2*res["dgm1"]
+    phi = CircularCoords(X, NLandmarks, prime=prime, cocycle_idx = [1], perc=0.5)["thetas"]
+
+    plt.figure(figsize=(18, 4))
+    ax = plt.subplot(141, projection='3d')
+    ax.scatter(X[:, 0], X[:, 1], X[:, 2], s=5)
+    ax.set_xlim(xr)
+    ax.set_ylim(xr)
+    ax.set_zlim(xr)
+    ax.view_init(elev=42, azim=-46)
+    plt.title("Point Cloud")
+
+    plt.subplot(142)
+    rips.plot(show=False)
+    plt.text(dgm1[idx_p1[0], 0]+0.02, dgm1[idx_p1[0], 1], "0")
+    plt.text(dgm1[idx_p1[1], 0]+0.02, dgm1[idx_p1[1], 1], "1")
+    plt.title("Persistence Diagram")
+
+    theta = theta - np.min(theta)
+    theta = theta/np.max(theta)
+    phi = phi - np.min(phi)
+    phi = phi/np.max(phi)
+    phi = np.mod(phi + 0.75, 1)
+    c = plt.get_cmap('afmhot')
+    C1 = c(np.array(np.round(255*theta), dtype=np.int32))
+    C1 = C1[:, 0:3]
+    C2 = c(np.array(np.round(255*phi), dtype=np.int32))
+    C2 = C2[:, 0:3]
+
+    ax = plt.subplot(143, projection='3d')
+    ax.scatter(X[:, 0], X[:, 1], X[:, 2], s=5, c = C1)
+    ax.set_xlim(xr)
+    ax.set_ylim(xr)
+    ax.set_zlim(xr)
+    ax.view_init(elev=42, azim=-46)
+    plt.title("Circular Coordinates Cocycle 0")
+
+    ax = plt.subplot(144, projection='3d')
+    ax.scatter(X[:, 0], X[:, 1], X[:, 2], s=5, c = C2)
+    ax.set_xlim(xr)
+    ax.set_ylim(xr)
+    ax.set_zlim(xr)
+    ax.view_init(elev=42, azim=-46)
+    plt.title("Circular Coordinates Cocycle 1")
+
+    plt.savefig("CircularCoordinatesExample.svg", bbox_inches='tight')
+
+def drawKleinIdentifications(arrowcolor):
+    hw = 0.3*1.5
+    hl = 0.4*1.5
+    pad = 0.2
+    ax = plt.gca()
+    plt.plot([0, 2*np.pi], [0, 0], c=arrowcolor, linewidth=4)
+    plt.plot([0, 2*np.pi], 2*[2*np.pi], c=arrowcolor, linewidth=4)
+    plt.plot([0, 0], [0, 2*np.pi], c=arrowcolor, linewidth=4)
+    plt.plot(2*[2*np.pi], [0, 2*np.pi], c=arrowcolor, linewidth=4)
+    plt.plot([0, 2*np.pi], 2*[np.pi], c=arrowcolor, linewidth=2, linestyle='--')
+
+    ax.arrow(np.pi-pad, 0, pad, 0, head_width = hw, head_length = hl, fc = arrowcolor, ec = arrowcolor, width = 0)
+    ax.arrow(np.pi-pad, 2*np.pi, pad, 0, head_width = hw, head_length = hl, fc = arrowcolor, ec = arrowcolor, width = 0)
+    ax.arrow(0, np.pi-pad, 0, pad/2, head_width = hw, head_length = hl, fc = arrowcolor, ec = arrowcolor, width = 0)
+    ax.arrow(2*np.pi, np.pi-pad, 0, pad/2, head_width = hw, head_length = hl, fc = arrowcolor, ec = arrowcolor, width = 0)
+    
+
+
+def makeProjCoordsFigure(seed1, perc = 0.9, cocycle_idx = [0, 1]):
+    np.random.seed(seed1)
+    N = 20000 #Number of initial points in (theta, phi) space
+    NLandmarks=200
+    bgcolor = (0.2, 0.2, 0.2)
+
+    theta = 2*np.pi*np.random.rand(N)
+    phi = np.pi*np.random.rand(N)
+    D = np.zeros((N, N))
+    for i in range(D.shape[0]):
+        D[i, :] = getKleinDistance(np.array([theta[i], phi[i]]), theta, phi)
+
+    # Come up with a colormap that varies along width and length
+    cmap1 = plt.get_cmap('bone')
+    z = theta - np.min(theta)
+    z = z/np.max(z)
+    C1 = cmap1(np.array(np.round(255*z), dtype=np.int32))
+    C1 = C1[:, 0:3]
+    cmap2 = plt.get_cmap('gist_heat')
+    z = phi - np.min(phi)
+    z = z/np.max(z)
+    C2 = cmap2(np.array(np.round(255*z), dtype=np.int32))
+    C2 = C2[:, 0:3]
+    arrowcolor1 = cmap2(170)
+    arrowcolor2 = 'c'
+
+    # Do projective coordinates
+    res = ProjCoords(D, NLandmarks, distance_matrix=True, cocycle_idx = cocycle_idx, proj_dim=2, perc = perc)
+    rips = res["rips"]
+    idx_p1 = res["idx_p1"]
+    dgm1 = 2*res["dgm1"]
+
+
+    plt.figure(figsize=(13, 10))
+
+    plt.subplot(341)
+    plt.scatter(theta, phi, 20, c=C1)
+    plt.scatter(np.mod(theta+np.pi, 2*np.pi), np.mod(-phi, 2*np.pi), 20, c=C1)
+    drawKleinIdentifications(arrowcolor1)
+    plt.title("Fund. Domain $x$ Color")
+    plt.subplot(342)
+    plt.scatter(theta, phi, 20, c=C2)
+    plt.scatter(np.mod(theta+np.pi, 2*np.pi), np.mod(-phi, 2*np.pi), 20, c=C2)
+    drawKleinIdentifications(arrowcolor2)
+    plt.title("Fund. Domain $y$ Color")
+
+    plt.subplot(343)
+    rips.plot(show=False)
+    plt.text(dgm1[idx_p1[0], 0]+0.02, dgm1[idx_p1[0], 1]+0.02, "0")
+    plt.text(dgm1[idx_p1[1], 0]+0.02, dgm1[idx_p1[1], 1]-0.02, "1")
+    plt.title("Persistence Diagram $\\mathbb{Z}/2$")
+    
+    for i, seed2 in enumerate([35, 23]):
+        S = getStereoProjCodim1(res['X'], seed2)
+        
+        plt.subplot(3, 4, 5+i*2)
+        plotRP2Stereo(S[phi < np.pi/2, :], C1[phi < np.pi/2, :], arrowcolor=arrowcolor1)
+        plt.title("Stereo %i, $x$ color, $y <= \\pi/2$"%(i+1))
+        plt.subplot(3, 4, 6+i*2)
+        plotRP2Stereo(S[phi > np.pi/2, :], C1[phi > np.pi/2, :], arrowcolor=arrowcolor1)
+        plt.title("Stereo %i, $x$ color, $y >= \\pi/2$"%(i+1))
+
+        plt.subplot(3, 4, 9+i*2)
+        plotRP2Stereo(S[phi < np.pi/2, :], C2[phi < np.pi/2, :], arrowcolor=arrowcolor2)
+        plt.title("Stereo %i, $y$ color, $y < \\pi/2$"%(i+1))
+        plt.subplot(3, 4, 10+i*2)
+        plotRP2Stereo(S[phi >= np.pi/2, :], C2[phi >= np.pi/2, :], arrowcolor=arrowcolor2)
+        plt.title("Stereo %i, $y$ color, $y > \\pi/2$"%(i+1))
+
+    for i in range(1, 13):
+        plt.subplot(3, 4, i)
+        if i < 3:
+            plt.xlabel("$x$")
+            plt.ylabel("$y$")
+            plt.xticks([0, 2*np.pi], ["0", "$2 \\pi$"])
+            plt.yticks([0, np.pi/2, np.pi, 2*np.pi], ["0", "$\\pi/2$", "$\\pi$", "$2\\pi$"])
+        elif i < 5:
+            continue
+        ax = plt.gca()
+        ax.set_facecolor(bgcolor)
+        ax.set_xticks([])
+        ax.set_yticks([])
+    plt.tight_layout()
+    plt.savefig("ProjectiveCoordinatesExample.png", bbox_inches='tight')
+
+
 if __name__ == '__main__':
     #makeKleinProjCoordsFigure()
     #makeTorusFigure(distance = True)
@@ -696,4 +869,8 @@ if __name__ == '__main__':
     #makeKleinFigure(distance = False)
     #makeSphereFigure()
     #makeRP2Figure(randomSeed = 48)
-    make2HoledTorusFigure()
+    #make2HoledTorusFigure()
+    #makeCircularCoordsFigure()
+
+    #seed1 = 16, perc = 0.9, cocycle_idx = [0, 1]: 14, 99
+    makeProjCoordsFigure(seed1 = 16, perc = 0.7)
